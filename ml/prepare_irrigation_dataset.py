@@ -50,13 +50,32 @@ def prepare_irrigation_features(df: pd.DataFrame):
     df["precip_rolling_sum"] = df["precipitation_mm"].rolling(6, min_periods=1).sum()
     df["wind_rolling_mean"] = df["wind_speed"].rolling(3, min_periods=1).mean()
 
-    df["et0"] = 0.0023 * np.sqrt(np.maximum(df["temp_c"].rolling(3).max() - df["temp_c"].rolling(3).min(), 0)) * (df["temp_c"] + 17.8)
-    df["et0"].fillna(df["et0"].mean(), inplace=True)
+    Tmax = df["temp_c"].rolling(24, min_periods=1).max()
+    Tmin = df["temp_c"].rolling(24, min_periods=1).min()
+    deltaT = np.maximum(Tmax - Tmin, 5)
+
+    seasonal_factor = df["month"].map({
+        11: 4.4, 12: 4.4, 1: 4.4, 2: 4.3, 3: 4.2, 4: 4.1,
+        5: 5.0, 6: 2.9, 7: 2.9, 8: 2.9, 9: 3.0, 10: 3.2
+    }).fillna(1.0)
+
+    df["et0"] = (
+        0.0028 * (df["temp_c"] + 18) * np.sqrt(deltaT)
+        * (1 + df["wind_speed"] / 15)
+        * (1.5 - df["humidity"] / 100)
+        * seasonal_factor
+    )
+    df["et0"] = df["et0"].clip(1.0, 7.0).fillna(3.5)
 
     df["cum_rain_3days"] = df["precipitation_mm"].rolling(72, min_periods=1).sum()
 
-    df["water_need"] = (df["et0"] * (1 + (df["wind_speed"] / 10))) - df["precip_rolling_sum"]
-    df["water_need"] = df["water_need"].clip(lower=0)
+    effective_rain = df["precip_rolling_sum"] * 0.7
+    df["water_need"] = (df["et0"] - effective_rain).clip(lower=0.3)
+
+    df.loc[df["month"].isin([3, 4, 5]), "water_need"] *= 3.3  # plus chaud → besoin ↑
+    df.loc[df["month"].isin([7, 8, 9]), "water_need"] *= 2.8  # pluies → besoin ↓
+
+    df["water_need"] = df["water_need"].clip(0.3, 9.0)
 
     def irrigation_level(need):
         if need < 2:
@@ -67,9 +86,7 @@ def prepare_irrigation_features(df: pd.DataFrame):
             return "high"
 
     df["irrigation_label"] = df["water_need"].apply(irrigation_level)
-
     return df
-
 
 def main():
     df = load_weather_data()

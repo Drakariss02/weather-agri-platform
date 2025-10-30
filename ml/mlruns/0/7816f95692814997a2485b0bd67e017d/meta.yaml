@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/USER/weather-agri-platform/ml/mlruns/0/7816f95692814997a2485b0bd67e017d/artifacts
+end_time: 1761601237922
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 7816f95692814997a2485b0bd67e017d
+run_name: Realistic_Irrigation_Model
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761601225922
+status: 3
+tags: []
+user_id: USER
