@@ -13,7 +13,6 @@ class DiseaseForecastInput(BaseModel):
     lon: float
 
 def fetch_openmeteo_forecast(lat: float, lon: float):
-    """Récupère les prévisions météo Open-Meteo (3 jours)"""
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
@@ -48,7 +47,6 @@ def fetch_openmeteo_forecast(lat: float, lon: float):
 
 @router.post("/forecast")
 def predict_disease_forecast(data: DiseaseForecastInput):
-    """Prédit le risque de maladie sur 3 jours à partir des prévisions Open-Meteo"""
     try:
         df = fetch_openmeteo_forecast(data.lat, data.lon)
         

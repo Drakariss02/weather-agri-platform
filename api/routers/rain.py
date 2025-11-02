@@ -13,7 +13,6 @@ class RainForecastInput(BaseModel):
     lon: float
 
 def add_cyclical_features(df):
-    """Ajoute les variables cycliques pour l'heure et le mois"""
     df["sin_hour"] = np.sin(2 * np.pi * df["hour"] / 24)
     df["cos_hour"] = np.cos(2 * np.pi * df["hour"] / 24)
     df["sin_month"] = np.sin(2 * np.pi * df["month"] / 12)
@@ -21,7 +20,6 @@ def add_cyclical_features(df):
     return df
 
 def fetch_openmeteo_forecast(lat: float, lon: float):
-    """Récupère les prévisions horaires sur 3 jours depuis Open-Meteo"""
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
@@ -56,7 +54,6 @@ def fetch_openmeteo_forecast(lat: float, lon: float):
 
 @router.post("/forecast")
 def predict_rain_forecast(data: RainForecastInput):
-    """Prédit le risque de pluie pour les 3 prochains jours à partir des prévisions Open-Meteo"""
     df = fetch_openmeteo_forecast(data.lat, data.lon)
 
     df = add_cyclical_features(df)

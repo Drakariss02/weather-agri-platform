@@ -24,15 +24,16 @@ class _DashboardPageState extends State<DashboardPage> {
   String _statusMessage = "";
   double? _lat;
   double? _lon;
+  String? _culture;
+  String? _localite;
+
   late ModelApiService _api;
 
-  // responses
   Map<String, dynamic>? _rain;
   Map<String, dynamic>? _drought;
   Map<String, dynamic>? _irrigation;
   Map<String, dynamic>? _disease;
 
-  // Weather data for next 3 days
   List<Map<String, dynamic>> _weatherForecast = [];
 
   @override
@@ -107,51 +108,58 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (e) {
       setState(() {
-        _statusMessage = "Erreur réseau météo : $e";
+        _statusMessage = "Erreur réseau météo";
       });
     }
   }
 
   Future<void> _loadAndFetch() async {
-    setState(() {
-      _loading = true;
-      _statusMessage = "Chargement des données...";
-    });
-
     final prefs = await SharedPreferences.getInstance();
     _lat = prefs.getDouble("lat") ?? 14.721;
     _lon = prefs.getDouble("lon") ?? -16.8882;
+    _culture = prefs.getString("culture")?? "Inconnue";
+    _localite = prefs.getString("localite")?? "Inconnue";
 
-    if (_lat == null || _lon == null) {
-      setState(() {
-        _loading = false;
-        _statusMessage = "Coordonnées manquantes — définissez votre profil.";
-      });
-      return;
-    }
-
-    try {
-      await _fetchAll();
-    } catch (e) {
-      final cached = prefs.getString('dashboard_cache');
-      if (cached != null) {
+    // Charger le cache dès le début
+    final cached = prefs.getString('dashboard_cache');
+    if (cached != null) {
+      try {
         final Map<String, dynamic> data = jsonDecode(cached);
         setState(() {
           _rain = data['rain'];
           _drought = data['drought'];
           _irrigation = data['irrigation'];
           _disease = data['disease'];
-          _statusMessage = "Affichage des dernières données en cache";
+          _statusMessage = "Affichage des données en cache...";
+          _loading = false; // On montre le cache tout de suite
+        });
+      } catch (e) {
+        debugPrint("Erreur décodage cache: $e");
+      }
+    } else {
+      setState(() {
+        _loading = true;
+        _statusMessage = "Chargement initial...";
+      });
+    }
+
+    // Lancer la récupération réseau en parallèle
+    try {
+      await _fetchAll();
+    } catch (e) {
+      if (cached == null) {
+        setState(() {
+          _statusMessage = "Erreur réseau ";
           _loading = false;
         });
       } else {
         setState(() {
-          _statusMessage = "Erreur réseau : $e";
-          _loading = false;
+          _statusMessage = "Mode hors ligne — affichage du cache";
         });
       }
     }
   }
+
 
   Future<void> _fetchAll() async {
     final lat = _lat!;
@@ -362,12 +370,20 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Tableau de Bord Agricole",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on),
+                      Expanded(
+                          child: Text(
+                            "${_localite}  : Champs de ${_culture}",
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                      )
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -734,9 +750,12 @@ class _DashboardPageState extends State<DashboardPage> {
                         size: 16,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        _statusMessage,
-                        style: TextStyle(color: Colors.grey[700]),
+                      Expanded(
+                        child: Text(
+                          _statusMessage,
+                          style: TextStyle(color: Colors.grey[700]),
+                          softWrap: true,
+                        ),
                       ),
                     ],
                   ),

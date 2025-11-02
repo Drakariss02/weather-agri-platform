@@ -13,7 +13,6 @@ class DroughtForecastInput(BaseModel):
     lon: float
 
 def fetch_openmeteo_forecast(lat: float, lon: float):
-    """Récupère les prévisions météo Open-Meteo (3 jours)"""
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
@@ -44,14 +43,12 @@ def fetch_openmeteo_forecast(lat: float, lon: float):
     df["precip_rolling_sum"] = df["precipitation_mm"].rolling(3, min_periods=1).sum()
     df["wind_rolling_mean"] = df["wind_speed"].rolling(3, min_periods=1).mean()
 
-    # Cumul pluie 3 jours pour indice sécheresse
     df["cum_rain_3days"] = df["precipitation_mm"].rolling(72, min_periods=1).sum()
 
     return df
 
 @router.post("/forecast")
 def predict_drought_forecast(data: DroughtForecastInput):
-    """Prédit le risque de sécheresse sur 3 jours à partir des prévisions Open-Meteo"""
     df = fetch_openmeteo_forecast(data.lat, data.lon)
     
     dates = df["observation_time"].copy()
