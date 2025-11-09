@@ -5,7 +5,11 @@ from datetime import datetime
 
 router = APIRouter()
 
-MODEL_PATH = os.path.join("../ml/artifacts", "disease_model.pkl")
+#MODEL_PATH = os.path.join("../ml/artifacts", "disease_model.pkl")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "../models/disease_model.pkl")
+
 model = joblib.load(MODEL_PATH)
 
 class DiseaseForecastInput(BaseModel):
@@ -13,7 +17,6 @@ class DiseaseForecastInput(BaseModel):
     lon: float
 
 def fetch_openmeteo_forecast(lat: float, lon: float):
-    """Récupère les prévisions météo Open-Meteo (3 jours)"""
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
@@ -48,7 +51,6 @@ def fetch_openmeteo_forecast(lat: float, lon: float):
 
 @router.post("/forecast")
 def predict_disease_forecast(data: DiseaseForecastInput):
-    """Prédit le risque de maladie sur 3 jours à partir des prévisions Open-Meteo"""
     try:
         df = fetch_openmeteo_forecast(data.lat, data.lon)
         

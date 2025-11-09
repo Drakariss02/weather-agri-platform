@@ -6,18 +6,20 @@ import joblib, os, requests
 
 router = APIRouter()
 
-MODEL_PATH = os.path.join("../ml/artifacts", "irrigation_model1.pkl")
+#MODEL_PATH = os.path.join("../ml/artifacts", "irrigation_model1.pkl")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "../models/irrigation_model1.pkl")
+
 model = joblib.load(MODEL_PATH)
 
 
-# === Schéma d'entrée ===
 class IrrigationForecastInput(BaseModel):
     lat: float
     lon: float
 
 
 def calculate_realistic_et0(df: pd.DataFrame) -> pd.Series:
-    """Calcul réaliste de ET₀ (Hargreaves calibré pour le Sahel)"""
     Tmax = df["temp_c"].rolling(24, min_periods=1).max()
     Tmin = df["temp_c"].rolling(24, min_periods=1).min()
     deltaT = np.maximum(Tmax - Tmin, 5)
@@ -40,7 +42,6 @@ def calculate_realistic_et0(df: pd.DataFrame) -> pd.Series:
 
 
 def fetch_openmeteo_forecast(lat: float, lon: float) -> pd.DataFrame:
-    """Récupère les prévisions météo sur 3 jours depuis Open-Meteo"""
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
@@ -83,7 +84,6 @@ def fetch_openmeteo_forecast(lat: float, lon: float) -> pd.DataFrame:
 
 @router.post("/forecast")
 def predict_irrigation_forecast(data: IrrigationForecastInput):
-    """Prévoit les besoins en eau (mm/jour) sur 3 jours à partir des conditions réelles"""
     try:
         df = fetch_openmeteo_forecast(data.lat, data.lon)
 

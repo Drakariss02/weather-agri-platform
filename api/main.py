@@ -1,16 +1,35 @@
 from fastapi import FastAPI
-from routers import rain, secheresse, irrigation, maladie
+from routers import auth , rain, secheresse, irrigation, maladie, champs
+from database import Base, engine
+
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(
     title="🌦️ Weather-Agri Prediction API",
-    description="API de prédiction météo-agricole (pluie, sécheresse, maladies, irrigation)",
-    version="1.0.0"
+    description="API de prédiction et gestion des agriculteurs/champs",
+    version="1.1.0"
 )
 
-app.include_router(rain.router, prefix="/predict/rain", tags=["Rain Prediction"])
-app.include_router(secheresse.router, prefix="/predict/secheresse", tags=["secheresse Prediction"])
-app.include_router(maladie.router, prefix="/predict/maladie", tags=["maladie Prediction"])
-app.include_router(irrigation.router, prefix="/predict/irrigation", tags=["Irrigation Recommendation"])
+# Création auto des tables
+Base.metadata.create_all(bind=engine)
+
+# Routes IA
+app.include_router(rain.router, prefix="/predict/rain", tags=["Rain"])
+app.include_router(secheresse.router, prefix="/predict/secheresse", tags=["Sécheresse"])
+app.include_router(irrigation.router, prefix="/predict/irrigation", tags=["Irrigation"])
+app.include_router(maladie.router, prefix="/predict/maladie", tags=["Maladie"])
+
+# Routes Auth / Données
+app.include_router(auth.router, prefix="/auth", tags=["Authentification"])
+app.include_router(champs.router, prefix="/champs", tags=["Champs"])
+
+
+instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=False,
+)
+instrumentator.instrument(app).expose(app, include_in_schema=False, should_gzip=True)
+
 
 @app.get("/")
 def home():

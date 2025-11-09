@@ -6,7 +6,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:lottie/lottie.dart';
 import 'package:iconsax/iconsax.dart';
 import '../services/model_api_service.dart';
+import '../services/translation_service.dart';
 import '../constants.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DroughtForecastPage extends ConsumerStatefulWidget {
   const DroughtForecastPage({super.key});
@@ -40,7 +42,6 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
     _lat = prefs.getDouble("lat") ?? 14.7;
     _lon = prefs.getDouble("lon") ?? -16.9;
 
-    //  Étape 1 : Charger immédiatement les données en cache
     final cached = prefs.getString('dashboard_cache');
     if (cached != null) {
       try {
@@ -49,27 +50,24 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
         if (droughtData != null && droughtData["predictions"] != null) {
           setState(() {
             _predictions = List<Map<String, dynamic>>.from(droughtData["predictions"]);
-            _message = "Affichage des données en cache";
+            _message = TranslationService.tr('affichage_cache');
             _loading = false;
           });
         }
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
     }
 
-    // Étape 2 : Mise à jour des données depuis l’API
     try {
       final data = await _api.post("/predict/secheresse/forecast", {"lat": _lat, "lon": _lon});
       setState(() {
         _predictions = List<Map<String, dynamic>>.from(data["predictions"]);
         final avgRisk = _predictions.map((e) => e["drought_risk"]).reduce((a, b) => a + b) / _predictions.length;
         if (avgRisk > 0.7) {
-          _message = "🔥 Risque élevé de sécheresse — Planifiez l'irrigation d'urgence";
+          _message = TranslationService.tr('drought_msg_high');
         } else if (avgRisk > 0.4) {
-          _message = "🌤️ Risque modéré — Surveillez l'humidité du sol régulièrement";
+          _message = TranslationService.tr('drought_msg_medium');
         } else {
-          _message = "🌱 Conditions optimales — Aucun stress hydrique détecté";
+          _message = TranslationService.tr('drought_msg_low');
         }
         _loading = false;
       });
@@ -84,7 +82,7 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
     } catch (e) {
       if (_predictions.isEmpty) {
         setState(() {
-          _message = "Erreur de chargement — affichage du cache";
+          _message = TranslationService.tr('error_network_no_data');
           _loading = false;
         });
       }
@@ -104,9 +102,9 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
   }
 
   String _getRiskLevel(double risk) {
-    if (risk > 0.7) return "ÉLEVÉ";
-    if (risk > 0.4) return "MODÉRÉ";
-    return "FAIBLE";
+    if (risk > 0.7) return TranslationService.tr('risk_high');
+    if (risk > 0.4) return TranslationService.tr('risk_medium');
+    return TranslationService.tr('risk_low');
   }
 
   @override
@@ -122,8 +120,8 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
             backgroundColor: const Color(0xFFD35400),
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                "Prévision Sécheresse",
-                style: TextStyle(
+                TranslationService.tr('drought_forecast'),
+                style: GoogleFonts.notoSans(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -166,24 +164,25 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
   }
 
   Widget _buildLoadingState() {
-    return Container(
+    return SizedBox(
       height: 400,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Lottie.asset(
-            'assets/lottie/drought.json',
-            width: 100,
-            height: 100,
-          ),
+          Lottie.asset('assets/lottie/drought.json', width: 100, height: 100),
           const SizedBox(height: 20),
           Text(
-            "Analyse des données météo...",
-            style: TextStyle(
+            TranslationService.tr('loading_weather'),
+            style: GoogleFonts.notoSans(
               fontSize: 16,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            TranslationService.tr('loading_wait'),
+            style: GoogleFonts.notoSans(fontSize: 13, color: Colors.grey[500]),
           ),
         ],
       ),
@@ -205,8 +204,8 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
               Icon(Iconsax.calendar_1, color: Colors.grey[700], size: 20),
               const SizedBox(width: 8),
               Text(
-                "PRÉVISIONS SUR 3 JOURS",
-                style: TextStyle(
+                TranslationService.tr('forecast_3days'),
+                style: GoogleFonts.notoSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[700],
@@ -260,7 +259,7 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
           Expanded(
             child: Text(
               _message,
-              style: const TextStyle(
+              style:  GoogleFonts.notoSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF2C3E50),
@@ -283,8 +282,8 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
             Icon(Iconsax.chart_1, color: Colors.grey[700], size: 20),
             const SizedBox(width: 8),
             Text(
-              "ÉVOLUTION DU RISQUE",
-              style: TextStyle(
+              TranslationService.tr('risk_evolution'),
+              style: GoogleFonts.notoSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[700],
@@ -326,7 +325,7 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         "${value.toInt()}%",
-                        style: TextStyle(
+                        style: GoogleFonts.notoSans(
                           fontSize: 10,
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
@@ -347,7 +346,7 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             date,
-                            style: TextStyle(
+                            style: GoogleFonts.notoSans(
                               fontSize: 10,
                               color: Colors.grey[600],
                               fontWeight: FontWeight.w500,
@@ -377,21 +376,8 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                   ),
                   barWidth: 3,
                   isStrokeCapRound: true,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                      radius: 4,
-                      color: const Color(0xFFD35400),
-                      strokeWidth: 2,
-                      strokeColor: Colors.white,
-                    ),
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      colors: [const Color(0xFFF4A261).withOpacity(0.1), Colors.transparent],
-                    ),
-                  ),
+                  dotData: FlDotData(show: true),
+                  belowBarData: BarAreaData(show: true),
                 ),
               ],
               minY: 0,
@@ -403,14 +389,12 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
     );
   }
 
-
   Widget _buildPredictionCards() {
     return Column(
       children: _predictions.asMap().entries.map((entry) {
         final index = entry.key;
         final prediction = entry.value;
         final risk = prediction["drought_risk"];
-
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           child: Material(
@@ -433,7 +417,6 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                       ),
                     ),
                     const SizedBox(width: 16),
-
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -447,14 +430,13 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                       ),
                     ),
                     const SizedBox(width: 12),
-
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             _formatDate(prediction["date"]),
-                            style: const TextStyle(
+                            style: GoogleFonts.notoSans(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Color(0xFF2C3E50),
@@ -462,8 +444,8 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "Jour ${index + 1} • Risque ${_getRiskLevel(risk).toLowerCase()}",
-                            style: TextStyle(
+                            "${TranslationService.tr('day')} ${index + 1} • ${_getRiskLevel(risk)}",
+                            style: GoogleFonts.notoSans(
                               fontSize: 12,
                               color: Colors.grey[600],
                             ),
@@ -471,7 +453,6 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                         ],
                       ),
                     ),
-
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
@@ -480,20 +461,15 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                       ),
                       child: Text(
                         "${(risk * 100).toInt()}%",
-                        style: TextStyle(
+                        style: GoogleFonts.notoSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: _getRiskColor(risk),
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 12),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.grey[400],
-                      size: 16,
-                    ),
+                    Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
                   ],
                 ),
               ),
@@ -546,8 +522,8 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    "Prévision du ${_formatDate(prediction["date"])}",
-                    style: const TextStyle(
+                    "${TranslationService.tr('forecast_of')} ${_formatDate(prediction["date"])}",
+                    style: GoogleFonts.notoSans(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF2C3E50),
@@ -556,12 +532,10 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              _buildDetailItem("Niveau de risque", _getRiskLevel(risk)),
-              _buildDetailItem("Indice de sécheresse", "${(risk * 100).toStringAsFixed(1)}%"),
-              _buildDetailItem("Recommandation", _getRecommendation(risk)),
-              _buildDetailItem("Conseil pratique", _getAdvice(risk)),
-
+              _buildDetailItem(TranslationService.tr('risk_level'), _getRiskLevel(risk)),
+              _buildDetailItem(TranslationService.tr('drought_index'), "${(risk * 100).toStringAsFixed(1)}%"),
+              _buildDetailItem(TranslationService.tr('recommendation'), _getRecommendation(risk)),
+              _buildDetailItem(TranslationService.tr('pratical_advice'), _getAdvice(risk)),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -572,9 +546,9 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    "Compris",
-                    style: TextStyle(
+                  child: Text(
+                    TranslationService.tr('detail_understood'),
+                    style: GoogleFonts.notoSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -590,15 +564,15 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
   }
 
   String _getRecommendation(double risk) {
-    if (risk > 0.7) return "Planifiez une irrigation d'urgence dès que possible.";
-    if (risk > 0.4) return "Surveillez de près l'humidité du sol.";
-    return "Aucune mesure urgente requise.";
+    if (risk > 0.7) return TranslationService.tr('rec_drought_high');
+    if (risk > 0.4) return TranslationService.tr('rec_drought_medium');
+    return TranslationService.tr('rec_drought_low');
   }
 
   String _getAdvice(double risk) {
-    if (risk > 0.7) return "Utilisez du paillage pour limiter l'évaporation et irriguez tôt le matin.";
-    if (risk > 0.4) return "Vérifiez la tension hydrique du sol et réduisez le stress des plantes.";
-    return "Continuez à surveiller les conditions, tout est stable.";
+    if (risk > 0.7) return TranslationService.tr('advice_drought_high');
+    if (risk > 0.4) return TranslationService.tr('advice_drought_medium');
+    return TranslationService.tr('advice_drought_low');
   }
 
   String _formatDate(String dateStr) {
@@ -608,49 +582,36 @@ class _DroughtForecastPageState extends ConsumerState<DroughtForecastPage> {
         return "${parts[2]}/${parts[1]}";
       }
       return dateStr;
-    } catch (e) {
+    } catch (_) {
       return dateStr;
     }
   }
 
-  Widget _buildDetailItem(String title, String value) {
+  Widget _buildDetailItem(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+          Text(
+            "$label : ",
+            style: GoogleFonts.notoSans(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF2C3E50),
             ),
           ),
-
-          const SizedBox(width: 10),
-
           Expanded(
-            flex: 5,
             child: Text(
               value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
+              style: GoogleFonts.notoSans(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2C3E50),
+                color: Colors.grey[700],
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 3,
             ),
           ),
         ],
       ),
     );
   }
-
 }
