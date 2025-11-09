@@ -14,13 +14,24 @@ import 'pages/disease_forecast_page.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/main_navigation_screen.dart';
 import 'presentation/screens/auth/login_page.dart';
-void main() {
-  runApp(const MeteoAgriApp());
+import 'services/translation_service.dart';
+
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await TranslationService.init();
+  runApp(MeteoAgriApp());
+
 }
 
-class MeteoAgriApp extends StatelessWidget {
+class MeteoAgriApp extends StatefulWidget {
   const MeteoAgriApp({super.key});
 
+  @override
+  State<MeteoAgriApp> createState() => _MeteoAgriAppState();
+}
+
+class _MeteoAgriAppState extends State<MeteoAgriApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -32,9 +43,8 @@ class MeteoAgriApp extends StatelessWidget {
         '/': (context) => const LoginPage(),
         '/register': (context) => const RegisterStep1(),
         '/home': (context) => const MainNavigationScreen(),
-        '/champs': (context) =>   ChampsScreen(),
-        //'/alert': (context) => const AlertScreen(),
-       '/profile': (context) => const ProfileScreen(),
+        '/champs': (context) => ChampsScreen(),
+        '/profile': (context) => const ProfileScreen(),
         '/pluie': (context) => const RainForecastPage(),
         '/secheresse': (context) => const DroughtForecastPage(),
         '/irrigation': (context) => const IrrigationForecastPage(),

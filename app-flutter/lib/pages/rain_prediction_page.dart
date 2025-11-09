@@ -1,11 +1,14 @@
+// lib/pages/rain_forecast_page.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/model_api_service.dart';
 import '../constants.dart';
+import '../services/translation_service.dart';
 
 class RainForecastPage extends ConsumerStatefulWidget {
   const RainForecastPage({super.key});
@@ -30,6 +33,11 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
   }
 
   Future<void> _loadAndFetch() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
     final prefs = await SharedPreferences.getInstance();
     _lat = prefs.getDouble("lat") ?? 14.721;
     _lon = prefs.getDouble("lon") ?? -16.8882;
@@ -47,7 +55,9 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
             _hasError = false;
           });
         }
-      } catch (_) {}
+      } catch (e) {
+        print("Erreur décodage cache pluie: $e");
+      }
     }
 
     try {
@@ -57,7 +67,7 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
         setState(() {
           _isLoading = false;
           _hasError = true;
-          _message = "Erreur réseau — aucune donnée disponible";
+          _message = TranslationService.tr('error_network_no_data');
         });
       }
     }
@@ -71,7 +81,7 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
       );
 
       final data = resp;
-      final predictions = List<Map<String, dynamic>>.from(data['predictions']);
+      final predictions = List<Map<String, dynamic>>.from(data['predictions'] ?? []);
 
       setState(() {
         _predictions = predictions;
@@ -86,23 +96,31 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
       cacheData['rain'] = data;
       await prefs.setString('dashboard_cache', jsonEncode(cacheData));
     } catch (e) {
+      print("Erreur fetch rain forecast: $e");
       setState(() {
         _isLoading = false;
         _hasError = true;
-        _message = "Erreur de chargement des prévisions";
+        _message = TranslationService.tr('error_loading_forecast');
       });
     }
   }
 
   void _updateMessage() {
-    if (_predictions.isEmpty) return;
-    final maxRisk = _predictions.map((p) => p['rain_risk']).reduce((a, b) => a > b ? a : b);
+    if (_predictions.isEmpty) {
+      _message = TranslationService.tr('no_data');
+      return;
+    }
+
+    final maxRisk = _predictions
+        .map((p) => (p['rain_risk'] as num?)?.toDouble() ?? 0.0)
+        .reduce((a, b) => a > b ? a : b);
+
     if (maxRisk > 0.7) {
-      _message = "🌧️ Fort risque de pluie — Préparez vos cultures à l'humidité";
+      _message = TranslationService.tr('rain_msg_high');
     } else if (maxRisk > 0.4) {
-      _message = "🌤️ Risque modéré — Surveillez les prévisions régulièrement";
+      _message = TranslationService.tr('rain_msg_medium');
     } else {
-      _message = "☀️ Conditions optimales — Faible risque de précipitations";
+      _message = TranslationService.tr('rain_msg_low');
     }
   }
 
@@ -113,22 +131,22 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
   }
 
   IconData _getRiskIcon(double risk, bool rainExpected) {
-    if (rainExpected) return Icons.beach_access;
+    if (rainExpected == true) return Icons.beach_access;
     if (risk > 0.7) return Icons.cloudy_snowing;
     if (risk > 0.4) return Icons.cloud;
     return Icons.wb_sunny;
   }
 
   String _getRiskLevel(double risk) {
-    if (risk > 0.7) return "ÉLEVÉ";
-    if (risk > 0.4) return "MODÉRÉ";
-    return "FAIBLE";
+    if (risk > 0.7) return TranslationService.tr('risk_high');
+    if (risk > 0.4) return TranslationService.tr('risk_medium');
+    return TranslationService.tr('risk_low');
   }
 
   String _getRecommendation(double risk) {
-    if (risk > 0.7) return "Protégez vos cultures de l'excès d'eau";
-    if (risk > 0.4) return "Surveillez l'humidité du sol";
-    return "Conditions idéales pour l'irrigation";
+    if (risk > 0.7) return TranslationService.tr('rec_high');
+    if (risk > 0.4) return TranslationService.tr('rec_medium');
+    return TranslationService.tr('rec_low');
   }
 
   @override
@@ -147,18 +165,26 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
     slivers: [
       _buildAppBar(),
       SliverToBoxAdapter(
-        child: Container(
-          height: 400,
+        child: SizedBox(
+          height: 420,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Lottie.asset('assets/lottie/rain_cloud.json', width: 100, height: 100),
+              Lottie.asset('assets/lottie/rain_cloud.json', width: 110, height: 110),
               const SizedBox(height: 20),
-              Text("Analyse des données météo...",
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+              Text(
+                TranslationService.tr('loading_weather'),
+                style: GoogleFonts.notoSans(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 10),
-              Text("Cette opération peut prendre quelques secondes",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]), textAlign: TextAlign.center),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  TranslationService.tr('loading_wait'),
+                  style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey[500]),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           ),
         ),
@@ -171,19 +197,24 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
       _buildAppBar(),
       SliverToBoxAdapter(
         child: Container(
-          height: 400,
+          height: 420,
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Lottie.asset('assets/lottie/error.json', width: 120, height: 120),
               const SizedBox(height: 20),
-              Text("Oups ! Quelque chose s'est mal passé",
-                  style: TextStyle(fontSize: 18, color: Colors.grey[800], fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center),
+              Text(
+                TranslationService.tr('error_title'),
+                style: GoogleFonts.notoSans(fontSize: 18, color: Colors.grey[800], fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 10),
-              Text(_message,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
+              Text(
+                _message,
+                style: GoogleFonts.notoSans(fontSize: 14, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: _loadAndFetch,
@@ -192,8 +223,10 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                 ),
-                child: const Text("Réessayer",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                child: Text(
+                  TranslationService.tr('retry'),
+                  style: GoogleFonts.notoSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -207,9 +240,9 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
     pinned: true,
     backgroundColor: const Color(0xFF2E8B57),
     flexibleSpace: FlexibleSpaceBar(
-      title: const Text(
-        "Prévision Pluie",
-        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+      title: Text(
+        TranslationService.tr('rain_forecast'),
+        style: GoogleFonts.notoSans(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
       ),
       background: Container(
         decoration: const BoxDecoration(
@@ -232,7 +265,7 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
 
   Widget _buildContent() {
     final maxRisk = _predictions.isNotEmpty
-        ? _predictions.map((p) => p['rain_risk']).reduce((a, b) => a > b ? a : b)
+        ? _predictions.map((p) => (p['rain_risk'] as num?)?.toDouble() ?? 0.0).reduce((a, b) => a > b ? a : b)
         : 0.0;
 
     return CustomScrollView(
@@ -252,12 +285,11 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
                   children: [
                     Icon(Icons.calendar_today, color: Colors.grey[700], size: 20),
                     const SizedBox(width: 8),
-                    Text("PRÉVISIONS SUR 3 JOURS",
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                            letterSpacing: 0.5)),
+                    Text(
+                      TranslationService.tr('forecast_3days'),
+                      style: GoogleFonts.notoSans(
+                          fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700], letterSpacing: 0.5),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -294,15 +326,16 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_getRiskLevel(maxRisk),
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _getRiskColor(maxRisk),
-                      letterSpacing: 1.2)),
+              Text(
+                _getRiskLevel(maxRisk),
+                style: GoogleFonts.notoSans(
+                    fontSize: 12, fontWeight: FontWeight.w700, color: _getRiskColor(maxRisk), letterSpacing: 1.2),
+              ),
               const SizedBox(height: 4),
-              Text(_message,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50))),
+              Text(
+                _message,
+                style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF2C3E50)),
+              ),
             ],
           ),
         ),
@@ -320,8 +353,10 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Center(
-          child: Text("Aucune donnée disponible",
-              style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+          child: Text(
+            TranslationService.tr('no_data'),
+            style: GoogleFonts.notoSans(fontSize: 14, color: Colors.grey[500]),
+          ),
         ),
       );
     }
@@ -333,12 +368,10 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
           children: [
             Icon(Icons.show_chart, color: Colors.grey[700], size: 20),
             const SizedBox(width: 8),
-            Text("ÉVOLUTION DU RISQUE",
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
-                    letterSpacing: 0.5)),
+            Text(
+              TranslationService.tr('forecast_3days'),
+              style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -355,36 +388,45 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
               gridData: FlGridData(show: true, drawVerticalLine: false),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (v, _) => Text("${v.toInt()}%", style: TextStyle(fontSize: 10)))),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    getTitlesWidget: (v, _) => Text("${v.toInt()}${TranslationService.tr('percent')}",
+                        style: GoogleFonts.notoSans(fontSize: 10)),
+                  ),
+                ),
                 bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 32,
-                        getTitlesWidget: (v, _) {
-                          final idx = v.toInt();
-                          if (idx < _predictions.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(_predictions[idx]["date"].toString().substring(8),
-                                  style: const TextStyle(fontSize: 10)),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        })),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 32,
+                    getTitlesWidget: (v, _) {
+                      final idx = v.toInt();
+                      if (idx < _predictions.length) {
+                        final dateStr = _predictions[idx]["date"]?.toString() ?? '';
+                        final label = dateStr.length >= 10 ? dateStr.substring(8, 10) : dateStr;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(label, style: GoogleFonts.notoSans(fontSize: 10)),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
               ),
               lineBarsData: [
                 LineChartBarData(
                   spots: _predictions
                       .asMap()
                       .entries
-                      .map((e) => FlSpot(e.key.toDouble(), e.value["rain_risk"] * 100))
+                      .map((e) => FlSpot(e.key.toDouble(), (e.value["rain_risk"] as num?)?.toDouble() ?? 0.0 * 100))
+                      .toList()
+                      .map((s) => FlSpot(s.x, s.y * 1)) // ensure double
                       .toList(),
                   isCurved: true,
                   barWidth: 3,
                   gradient: const LinearGradient(colors: [Color(0xFF2E8B57), Color(0xFF56CCF2)]),
+                  dotData: FlDotData(show: false),
                 ),
               ],
               minY: 0,
@@ -400,8 +442,8 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
     children: _predictions.asMap().entries.map((entry) {
       final index = entry.key;
       final prediction = entry.value;
-      final risk = prediction["rain_risk"];
-      final rainExpected = prediction["rain_expected"];
+      final risk = (prediction["rain_risk"] as num?)?.toDouble() ?? 0.0;
+      final rainExpected = prediction["rain_expected"] == true;
 
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -425,39 +467,33 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
                   const SizedBox(width: 16),
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration:
-                    BoxDecoration(color: _getRiskColor(risk).withOpacity(0.1), shape: BoxShape.circle),
-                    child: Icon(_getRiskIcon(risk, rainExpected),
-                        color: _getRiskColor(risk), size: 20),
+                    decoration: BoxDecoration(color: _getRiskColor(risk).withOpacity(0.1), shape: BoxShape.circle),
+                    child: Icon(_getRiskIcon(risk, rainExpected), color: _getRiskColor(risk), size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_formatDate(prediction["date"]),
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF2C3E50))),
+                        Text(
+                          _formatDate(prediction["date"]?.toString() ?? ''),
+                          style: GoogleFonts.notoSans(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF2C3E50)),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                            "Jour ${index + 1} • ${rainExpected ? 'Pluie attendue' : 'Pas de pluie'}",
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          "${TranslationService.tr('day')} ${index + 1} • ${rainExpected ? TranslationService.tr('rain_expected') : TranslationService.tr('no_rain')}",
+                          style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey[600]),
+                        ),
                       ],
                     ),
                   ),
                   Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                        color: _getRiskColor(risk).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Text("${(risk * 100).toInt()}%",
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: _getRiskColor(risk))),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: _getRiskColor(risk).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Text(
+                      "${(risk * 100).toInt()}${TranslationService.tr('percent')}",
+                      style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w700, color: _getRiskColor(risk)),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
@@ -481,12 +517,12 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
   }
 
   void _showDayDetails(Map<String, dynamic> prediction, int dayIndex) {
-    final risk = prediction["rain_risk"];
-    final rainExpected = prediction["rain_expected"];
+    final risk = (prediction["rain_risk"] as num?)?.toDouble() ?? 0.0;
+    final rainExpected = prediction["rain_expected"] == true;
+
     showModalBottomSheet(
       context: context,
-      shape:
-      const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -506,24 +542,19 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(color: _getRiskColor(risk).withOpacity(0.1), shape: BoxShape.circle),
-                  child: Icon(_getRiskIcon(risk, rainExpected),
-                      color: _getRiskColor(risk), size: 24),
+                  child: Icon(_getRiskIcon(risk, rainExpected), color: _getRiskColor(risk), size: 24),
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  "Prévision du ${_formatDate(prediction["date"])}",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2C3E50),
-                  ),
+                  "${TranslationService.tr('detail_rain_risk')} ${_formatDate(prediction["date"]?.toString() ?? '')}",
+                  style: GoogleFonts.notoSans(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF2C3E50)),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            _buildDetailItem("Risque de pluie", "${(risk * 100).toStringAsFixed(0)}%"),
-            _buildDetailItem("Probabilité", rainExpected ? "Élevée" : "Faible"),
-            _buildDetailItem("Recommandation", _getRecommendation(risk)),
+            _buildDetailItem(TranslationService.tr('detail_rain_risk'), "${(risk * 100).toStringAsFixed(0)}${TranslationService.tr('percent')}"),
+            _buildDetailItem(TranslationService.tr('detail_prob'), rainExpected ? TranslationService.tr('risk_high') : TranslationService.tr('risk_low')),
+            _buildDetailItem(TranslationService.tr('detail_recommendation'), _getRecommendation(risk)),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -534,13 +565,9 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  "Compris",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+                child: Text(
+                  TranslationService.tr('detail_understood'),
+                  style: GoogleFonts.notoSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                 ),
               ),
             ),
@@ -554,18 +581,14 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // ✅ pour bien aligner si plusieurs lignes
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
             flex: 3,
             child: Text(
               title,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+              style: GoogleFonts.notoSans(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(width: 12),
@@ -573,19 +596,14 @@ class _RainForecastPageState extends ConsumerState<RainForecastPage> {
             flex: 5,
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2C3E50),
-              ),
+              style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF2C3E50)),
               textAlign: TextAlign.right,
-              softWrap: true, // ✅ permet de passer à la ligne
-              overflow: TextOverflow.visible, // ✅ évite le débordement
+              softWrap: true,
+              overflow: TextOverflow.visible,
             ),
           ),
         ],
       ),
     );
   }
-
 }

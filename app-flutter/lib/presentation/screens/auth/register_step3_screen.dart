@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/api_service.dart';
 import '../../../pages/dashboard_page.dart';
+import '../../../constants.dart';
 
 class RegisterStep3 extends StatefulWidget {
   final String nom, tel, mdp, langue;
@@ -20,7 +24,89 @@ class _RegisterStep3State extends State<RegisterStep3> {
   final lonCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  List<Map<String, dynamic>> _suggestions = [];
+  Timer? _debounce;
+  bool _isSearchingLocalite = false;
   bool loading = false;
+
+  Future<List<Map<String, dynamic>>> _searchLocalites(String q) async {
+    if (q.trim().length < 2) return [];
+    final username = GEONAMES_USERNAME;
+    final encoded = Uri.encodeComponent(q);
+    final url =
+        'https://secure.geonames.org/searchJSON?name_startsWith=$encoded&maxRows=10&username=$username&continentCode=AF&featureClass=P';
+    final uri = Uri.parse(url);
+
+    final resp = await http.get(uri).timeout(const Duration(seconds: 15), onTimeout: () {
+      throw Exception('Délai dépassé lors de la recherche GeoNames');
+    });
+
+    if (resp.statusCode == 200) {
+      final body = jsonDecode(resp.body);
+      final List items = body['geonames'] ?? [];
+      return items.map<Map<String, dynamic>>((it) {
+        final name = it['name'] ?? '';
+        final admin = it['adminName1'] ?? '';
+        final country = it['countryName'] ?? '';
+        final lat = it['lat'] ?? it['latitude'] ?? '';
+        final lng = it['lng'] ?? it['longitude'] ?? '';
+
+        final display = [name, admin, country].where((s) => s != null && s.toString().isNotEmpty).join(', ');
+        return {
+          'display': display,
+          'name': name,
+          'admin': admin,
+          'country': country,
+          'lat': lat.toString(),
+          'lng': lng.toString(),
+        };
+      }).toList();
+    } else {
+      throw Exception('Erreur GeoNames: ${resp.statusCode}');
+    }
+  }
+
+  void _onLocaliteChanged(String value) {
+    _debounce?.cancel();
+    if (value.trim().length < 2) {
+      setState(() {
+        _suggestions = [];
+        _isSearchingLocalite = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearchingLocalite = true;
+    });
+
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      try {
+        final res = await _searchLocalites(value);
+        setState(() {
+          _suggestions = res;
+        });
+      } catch (e) {
+        print("Erreur recherche localités: $e");
+        setState(() {
+          _suggestions = [];
+        });
+      } finally {
+        setState(() {
+          _isSearchingLocalite = false;
+        });
+      }
+    });
+  }
+
+  void _selectLocalite(Map<String, dynamic> item) {
+    setState(() {
+      localiteCtrl.text = item['display'] ?? item['name'] ?? '';
+      latCtrl.text = item['lat'] ?? '';
+      lonCtrl.text = item['lng'] ?? '';
+      _suggestions = [];
+    });
+  }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
@@ -64,12 +150,6 @@ class _RegisterStep3State extends State<RegisterStep3> {
       );
       Navigator.pushReplacementNamed(context, '/');
 
-      // Navigation vers le dashboard
-     /* Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardPage()),
-              (_) => false
-      );*/
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -118,11 +198,9 @@ class _RegisterStep3State extends State<RegisterStep3> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Indicateur de progression
                 _buildProgressIndicator(),
                 const SizedBox(height: 32),
 
-                // Titre et description
                 const Text(
                   "Champ principal",
                   style: TextStyle(
@@ -141,7 +219,6 @@ class _RegisterStep3State extends State<RegisterStep3> {
                 ),
                 const SizedBox(height: 32),
 
-                // Champs de formulaire
                 _buildTextField(
                   controller: cultureCtrl,
                   label: "Culture",
@@ -175,16 +252,68 @@ class _RegisterStep3State extends State<RegisterStep3> {
                 _buildDateField(),
                 const SizedBox(height: 20),
 
-                _buildTextField(
-                  controller: localiteCtrl,
-                  label: "Localité",
-                  icon: Icons.location_on_outlined,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer la localité';
-                    }
-                    return null;
-                  },
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTextField(
+                      controller: localiteCtrl,
+                      label: "Localité (autocomplétion)",
+                      icon: Icons.location_on_outlined,
+                      onChanged: _onLocaliteChanged,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer la localité';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 6),
+
+                    if (_isSearchingLocalite)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0),
+                        child: LinearProgressIndicator(),
+                      ),
+
+                    if (_suggestions.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            )
+                          ],
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _suggestions.length,
+                          itemBuilder: (ctx, idx) {
+                            final it = _suggestions[idx];
+                            return ListTile(
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              title: Text(
+                                it['display'] ?? 'Nom inconnu',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              subtitle: Text(
+                                'Lat: ${it['lat']}, Lon: ${it['lng']}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              onTap: () => _selectLocalite(it),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 20),
 
@@ -300,7 +429,7 @@ class _RegisterStep3State extends State<RegisterStep3> {
     return Column(
       children: [
         LinearProgressIndicator(
-          value: 1.0, // Dernière étape
+          value: 1.0,
           backgroundColor: Colors.grey[200],
           color: const Color(0xFF0B7E1E),
           borderRadius: BorderRadius.circular(10),
@@ -329,12 +458,14 @@ class _RegisterStep3State extends State<RegisterStep3> {
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
+      onChanged: onChanged,
       style: const TextStyle(
         fontSize: 16,
         color: Colors.black87,
@@ -442,6 +573,7 @@ class _RegisterStep3State extends State<RegisterStep3> {
     localiteCtrl.dispose();
     latCtrl.dispose();
     lonCtrl.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 }

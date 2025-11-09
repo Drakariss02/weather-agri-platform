@@ -6,7 +6,9 @@ import 'package:lottie/lottie.dart';
 import 'package:iconsax/iconsax.dart';
 import '../services/model_api_service.dart';
 import '../constants.dart';
+import '../services/translation_service.dart';
 import 'dart:convert';
+import 'package:google_fonts/google_fonts.dart';
 
 class DiseaseForecastPage extends ConsumerStatefulWidget {
   const DiseaseForecastPage({super.key});
@@ -36,7 +38,7 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
     setState(() {
       _loading = true;
       _hasError = false;
-      _message = "Chargement des données...";
+      _message = TranslationService.tr('disease_loading') ?? "Chargement des données...";
     });
 
     final prefs = await SharedPreferences.getInstance();
@@ -53,21 +55,20 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
             _predictions = List<Map<String, dynamic>>.from(diseaseData["predictions"]);
             _loading = false;
             _hasError = false;
-            _message = "Affichage des dernières données enregistrées (cache)";
+            _message = TranslationService.tr('mode_hors_ligne') ?? "Affichage des dernières données enregistrées (cache)";
           });
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     try {
-        await _fetchForecast();
+      await _fetchForecast();
     } catch (e) {
       if (_predictions.isEmpty) {
         setState(() {
           _loading = false;
           _hasError = true;
-          _message = "Erreur réseau — données du cache affichées";
+          _message = TranslationService.tr('error_network_no_data') ?? "Erreur réseau — données du cache affichées";
         });
       } else {
         debugPrint("Erreur API : $e — cache conservé");
@@ -84,11 +85,11 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
           : 0.0;
 
       if (maxRisk > 0.6) {
-        _message = "🦠 Risque élevé de maladies — Surveillance intensive requise";
+        _message = TranslationService.tr('disease_msg_high') ?? "🦠 Risque élevé de maladies — Surveillance intensive requise";
       } else if (maxRisk > 0.3) {
-        _message = "⚠️ Risque modéré — Surveillez l'apparition de symptômes";
+        _message = TranslationService.tr('disease_msg_medium') ?? "⚠️ Risque modéré — Surveillez l'apparition de symptômes";
       } else {
-        _message = "🌿 Conditions saines — Faible risque de maladies";
+        _message = TranslationService.tr('disease_msg_low') ?? "🌿 Conditions saines — Faible risque de maladies";
       }
 
       _loading = false;
@@ -116,38 +117,38 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
   }
 
   String _getRiskLevel(double risk) {
-    if (risk > 0.6) return "ÉLEVÉ";
-    if (risk > 0.3) return "MODÉRÉ";
-    return "FAIBLE";
+    if (risk > 0.6) return TranslationService.tr('risk_high') ?? "ÉLEVÉ";
+    if (risk > 0.3) return TranslationService.tr('risk_medium') ?? "MODÉRÉ";
+    return TranslationService.tr('risk_low') ?? "FAIBLE";
   }
 
   String _getDiseaseAdvice(double risk) {
-    if (risk > 0.6) return "Traitement préventif recommandé";
-    if (risk > 0.3) return "Surveillance renforcée";
-    return "Aucune action nécessaire";
+    if (risk > 0.6) return TranslationService.tr('disease_advice_high') ?? "Traitement préventif recommandé";
+    if (risk > 0.3) return TranslationService.tr('disease_advice_medium') ?? "Surveillance renforcée";
+    return TranslationService.tr('disease_advice_low') ?? "Aucune action nécessaire";
   }
 
   List<String> _getPreventiveMeasures(double risk) {
     if (risk > 0.6) {
       return [
-        "• Appliquer un fongicide préventif",
-        "• Éviter l'irrigation foliaire",
-        "• Augmenter l'aération",
-        "• Surveiller les premiers symptômes"
+        TranslationService.tr('disease_measure_high_1') ?? "• Appliquer un fongicide préventif",
+        TranslationService.tr('disease_measure_high_2') ?? "• Éviter l'irrigation foliaire",
+        TranslationService.tr('disease_measure_high_3') ?? "• Augmenter l'aération",
+        TranslationService.tr('disease_measure_high_4') ?? "• Surveiller les premiers symptômes"
       ];
     } else if (risk > 0.3) {
       return [
-        "• Vérifier l'humidité du feuillage",
-        "• Inspecter les plantes régulièrement",
-        "• Éviter les excès d'eau",
-        "• Maintenir une bonne circulation d'air"
+        TranslationService.tr('disease_measure_medium_1') ?? "• Vérifier l'humidité du feuillage",
+        TranslationService.tr('disease_measure_medium_2') ?? "• Inspecter les plantes régulièrement",
+        TranslationService.tr('disease_measure_medium_3') ?? "• Éviter les excès d'eau",
+        TranslationService.tr('disease_measure_medium_4') ?? "• Maintenir une bonne circulation d'air"
       ];
     } else {
       return [
-        "• Maintenir les bonnes pratiques culturales",
-        "• Surveiller l'humidité ambiante",
-        "• Éviter le stress hydrique",
-        "• Rotation des cultures si possible"
+        TranslationService.tr('disease_measure_low_1') ?? "• Maintenir les bonnes pratiques culturales",
+        TranslationService.tr('disease_measure_low_2') ?? "• Surveiller l'humidité ambiante",
+        TranslationService.tr('disease_measure_low_3') ?? "• Éviter le stress hydrique",
+        TranslationService.tr('disease_measure_low_4') ?? "• Rotation des cultures si possible"
       ];
     }
   }
@@ -174,8 +175,8 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
           backgroundColor: const Color(0xFF8E44AD),
           flexibleSpace: FlexibleSpaceBar(
             title: Text(
-              "Prévision Maladies",
-              style: TextStyle(
+              TranslationService.tr('disease_forecast') ?? "Prévision Maladies",
+              style: GoogleFonts.notoSans(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -206,8 +207,8 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  "Analyse du risque de maladies...",
-                  style: TextStyle(
+                  TranslationService.tr('disease_analyzing') ?? "Analyse du risque de maladies...",
+                  style: GoogleFonts.notoSans(
                     fontSize: 16,
                     color: Colors.grey[600],
                     fontWeight: FontWeight.w500,
@@ -231,8 +232,8 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
           backgroundColor: const Color(0xFF8E44AD),
           flexibleSpace: FlexibleSpaceBar(
             title: Text(
-              "Prévision Maladies",
-              style: TextStyle(
+              TranslationService.tr('disease_forecast') ?? "Prévision Maladies",
+              style: GoogleFonts.notoSans(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -251,8 +252,8 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
                 Icon(Icons.error_outline, size: 80, color: Colors.grey[400]),
                 const SizedBox(height: 20),
                 Text(
-                  "Impossible de charger les données",
-                  style: TextStyle(
+                  TranslationService.tr('error_loading_forecast') ?? "Impossible de charger les données",
+                  style: GoogleFonts.notoSans(
                     fontSize: 18,
                     color: Colors.grey[800],
                     fontWeight: FontWeight.w600,
@@ -265,7 +266,10 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
                     backgroundColor: const Color(0xFF8E44AD),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text("Réessayer", style: TextStyle(color: Colors.white)),
+                  child: Text(
+                      TranslationService.tr('retry') ?? "Réessayer",
+                      style: GoogleFonts.notoSans(color: Colors.white)
+                  ),
                 ),
               ],
             ),
@@ -289,8 +293,8 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
           backgroundColor: const Color(0xFF8E44AD),
           flexibleSpace: FlexibleSpaceBar(
             title: Text(
-              "Prévision Maladies",
-              style: TextStyle(
+              TranslationService.tr('disease_forecast') ?? "Prévision Maladies",
+              style: GoogleFonts.notoSans(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -371,13 +375,13 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_getRiskLevel(maxRisk), style: TextStyle(
+                Text(_getRiskLevel(maxRisk), style: GoogleFonts.notoSans(
                   fontSize: 12, fontWeight: FontWeight.w700, color: _getRiskColor(maxRisk), letterSpacing: 1.2,
                 )),
                 const SizedBox(height: 4),
-                Text(_message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text(_message, style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
-                Text(_getDiseaseAdvice(maxRisk), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(_getDiseaseAdvice(maxRisk), style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
           ),
@@ -396,9 +400,12 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
           children: [
             Icon(Icons.show_chart, color: Colors.grey[700], size: 20),
             const SizedBox(width: 8),
-            Text("ÉVOLUTION DU RISQUE", style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700], letterSpacing: 0.5,
-            )),
+            Text(
+                TranslationService.tr('disease_risk_evolution') ?? "ÉVOLUTION DU RISQUE",
+                style: GoogleFonts.notoSans(
+                  fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700], letterSpacing: 0.5,
+                )
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -416,14 +423,14 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(sideTitles: SideTitles(
                   showTitles: true, reservedSize: 40,
-                  getTitlesWidget: (value, meta) => Text("${(value * 100).toInt()}%", style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                  getTitlesWidget: (value, meta) => Text("${(value * 100).toInt()}%", style: GoogleFonts.notoSans(fontSize: 10, color: Colors.grey[600])),
                 )),
                 bottomTitles: AxisTitles(sideTitles: SideTitles(
                   showTitles: true, reservedSize: 32,
                   getTitlesWidget: (value, meta) {
                     final idx = value.toInt();
                     if (idx < _predictions.length) {
-                      return Text(_predictions[idx]["date"].toString().substring(8), style: TextStyle(fontSize: 10, color: Colors.grey[600]));
+                      return Text(_predictions[idx]["date"].toString().substring(8), style: GoogleFonts.notoSans(fontSize: 10, color: Colors.grey[600]));
                     }
                     return const SizedBox.shrink();
                   },
@@ -467,9 +474,12 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
             children: [
               Icon(Icons.medical_services, color: _getRiskColor(risk), size: 20),
               const SizedBox(width: 8),
-              Text("MESURES PRÉVENTIVES", style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: _getRiskColor(risk),
-              )),
+              Text(
+                  TranslationService.tr('disease_preventive_measures') ?? "MESURES PRÉVENTIVES",
+                  style: GoogleFonts.notoSans(
+                    fontSize: 14, fontWeight: FontWeight.w600, color: _getRiskColor(risk),
+                  )
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -477,7 +487,7 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: measures.map((measure) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(measure, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+              child: Text(measure, style: GoogleFonts.notoSans(fontSize: 13, color: Colors.grey[700])),
             )).toList(),
           ),
         ],
@@ -493,9 +503,12 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
           children: [
             Icon(Icons.calendar_today, color: Colors.grey[700], size: 20),
             const SizedBox(width: 8),
-            Text("PRÉVISIONS DÉTAILLÉES", style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700], letterSpacing: 0.5,
-            )),
+            Text(
+                TranslationService.tr('disease_detailed_forecast') ?? "PRÉVISIONS DÉTAILLÉES",
+                style: GoogleFonts.notoSans(
+                  fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700], letterSpacing: 0.5,
+                )
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -518,17 +531,24 @@ class _DiseaseForecastPageState extends ConsumerState<DiseaseForecastPage> {
                   ),
                   child: Icon(_getRiskIcon(risk), color: _getRiskColor(risk), size: 20),
                 ),
-                title: Text("${prediction["date"]}", style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text("Risque: ${(risk * 100).toStringAsFixed(0)}% • ${_getRiskLevel(risk)}"),
+                title: Text("${prediction["date"]}", style: GoogleFonts.notoSans(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                    "${TranslationService.tr('disease_risk_label') ?? "Risque"}: ${(risk * 100).toStringAsFixed(0)}% • ${_getRiskLevel(risk)}"
+                ),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: _getRiskColor(risk).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(prediction["disease_alert"] ? "ALERTE" : "SAIN", style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w700, color: _getRiskColor(risk),
-                  )),
+                  child: Text(
+                      prediction["disease_alert"]
+                          ? TranslationService.tr('disease_alert') ?? "ALERTE"
+                          : TranslationService.tr('disease_healthy') ?? "SAIN",
+                      style: GoogleFonts.notoSans(
+                        fontSize: 12, fontWeight: FontWeight.w700, color: _getRiskColor(risk),
+                      )
+                  ),
                 ),
               ),
             ),

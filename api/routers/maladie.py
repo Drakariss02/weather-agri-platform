@@ -5,7 +5,11 @@ from datetime import datetime
 
 router = APIRouter()
 
-MODEL_PATH = os.path.join("../ml/artifacts", "disease_model.pkl")
+#MODEL_PATH = os.path.join("../ml/artifacts", "disease_model.pkl")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "../models/disease_model.pkl")
+
 model = joblib.load(MODEL_PATH)
 
 class DiseaseForecastInput(BaseModel):

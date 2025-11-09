@@ -31,4 +31,4 @@ def login(telephone: str, mot_de_passe: str, db: Session = Depends(get_db)):
     user = db.query(Agriculteur).filter(Agriculteur.telephone == telephone).first()
     if not user or not pwd_context.verify(mot_de_passe, user.mot_de_passe):
         raise HTTPException(status_code=401, detail="Identifiants invalides")
-    return {"id": user.id, "nom_complet": user.nom_complet, "langue": user.langue}
+    return {"id": user.id, "nom_complet": user.nom_complet, "langue": user.langue, "telephone":user.telephone}

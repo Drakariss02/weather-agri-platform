@@ -1,3 +1,4 @@
+// lib/pages/irrigation_forecast_page.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:lottie/lottie.dart';
 import '../services/model_api_service.dart';
 import '../constants.dart';
+import '../services/translation_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class IrrigationForecastPage extends ConsumerStatefulWidget {
   const IrrigationForecastPage({super.key});
@@ -52,20 +55,20 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
             _message = _computeMessageFromPredictions();
           });
         }
-      } catch (_) {}
+      } catch (_) {
+        // ignore cache parse errors
+      }
     }
 
-    //  Mettre à jour depuis l'API
     try {
       final data = await _api.post("/predict/irrigation/forecast", {"lat": _lat, "lon": _lon});
       setState(() {
-        _predictions = List<Map<String, dynamic>>.from(data["predictions"]);
+        _predictions = List<Map<String, dynamic>>.from(data["predictions"] ?? []);
         _loading = false;
         _message = _computeMessageFromPredictions();
         _hasError = false;
       });
 
-      //  Sauvegarde dans le cache global
       final existingCache = prefs.getString('dashboard_cache');
       Map<String, dynamic> cacheMap = {};
       if (existingCache != null) cacheMap = jsonDecode(existingCache);
@@ -76,21 +79,28 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
         setState(() {
           _loading = false;
           _hasError = true;
-          _message = "Erreur de chargement des prévisions";
+          _message = TranslationService.tr('error_loading_forecast') ?? 'Erreur de chargement des prévisions';
+        });
+      } else {
+        setState(() {
+          _message = TranslationService.tr('mode_hors_ligne') ?? 'Mode hors ligne — affichage du cache';
         });
       }
     }
   }
 
   String _computeMessageFromPredictions() {
-    if (_predictions.isEmpty) return "Aucune donnée disponible";
-    final avgNeed = _predictions.map((e) => e["water_need_mm"]).reduce((a, b) => a + b) / _predictions.length;
+    if (_predictions.isEmpty) return TranslationService.tr('irrigation_no_data') ?? 'Aucune donnée disponible';
+    final avgNeed = _predictions
+        .map((e) => (e["water_need_mm"] as num?)?.toDouble() ?? 0.0)
+        .reduce((a, b) => a + b) /
+        _predictions.length;
     if (avgNeed > 5) {
-      return "🚿 Fort besoin d'irrigation — Planifiez un arrosage important";
+      return TranslationService.tr('irrigation_high') ?? '🚿 Fort besoin d\'irrigation — Planifiez un arrosage important';
     } else if (avgNeed > 2) {
-      return "💧 Irrigation légère recommandée — Arrosage modéré nécessaire";
+      return TranslationService.tr('irrigation_medium') ?? '💧 Irrigation légère recommandée — Arrosage modéré nécessaire';
     } else {
-      return "🌦️ Conditions optimales — Sol suffisamment humide";
+      return TranslationService.tr('irrigation_low') ?? '🌦️ Conditions optimales — Sol suffisamment humide';
     }
   }
 
@@ -107,15 +117,15 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
   }
 
   String _getNeedLevel(double need) {
-    if (need > 5) return "ÉLEVÉ";
-    if (need > 2) return "MODÉRÉ";
-    return "FAIBLE";
+    if (need > 5) return TranslationService.tr('irrigation_high_label') ?? 'ÉLEVÉ';
+    if (need > 2) return TranslationService.tr('irrigation_medium_label') ?? 'MODÉRÉ';
+    return TranslationService.tr('irrigation_low_label') ?? 'FAIBLE';
   }
 
   String _getRecommendation(double need) {
-    if (need > 5) return "Arrosage intensif requis";
-    if (need > 2) return "Arrosage modéré recommandé";
-    return "Aucun arrosage nécessaire";
+    if (need > 5) return TranslationService.tr('recommendation_high') ?? 'Arrosage intensif requis';
+    if (need > 2) return TranslationService.tr('recommendation_moderate') ?? 'Arrosage modéré recommandé';
+    return TranslationService.tr('recommendation_low') ?? 'Aucun arrosage nécessaire';
   }
 
   @override
@@ -142,8 +152,10 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
               children: [
                 Lottie.asset('assets/lottie/watering.json', width: 100, height: 100),
                 const SizedBox(height: 20),
-                Text("Analyse des besoins en eau...",
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                Text(
+                  TranslationService.tr('irrigation_loading') ?? 'Analyse des besoins en eau...',
+                  style: GoogleFonts.notoSans(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                ),
               ],
             ),
           ),
@@ -157,17 +169,25 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
       slivers: [
         _buildAppBar(),
         SliverToBoxAdapter(
-          child: SizedBox(
+          child: Container(
             height: 400,
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 80, color: Colors.grey[400]),
+                Lottie.asset('assets/lottie/error.json', width: 120, height: 120),
                 const SizedBox(height: 20),
-                Text("Impossible de charger les données",
-                    style: TextStyle(fontSize: 18, color: Colors.grey[800], fontWeight: FontWeight.w600)),
+                Text(
+                  TranslationService.tr('error_title') ?? "Oups ! Quelque chose s'est mal passé",
+                  style: GoogleFonts.notoSans(fontSize: 18, color: Colors.grey[800], fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 10),
-                Text(_message, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                Text(
+                  _message,
+                  style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 30),
                 ElevatedButton(
                   onPressed: _loadAndFetch,
@@ -176,8 +196,10 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                   ),
-                  child: const Text("Réessayer",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  child: Text(
+                    TranslationService.tr('retry') ?? 'Réessayer',
+                    style: GoogleFonts.notoSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
                 ),
               ],
             ),
@@ -187,40 +209,39 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
     );
   }
 
-  Widget _buildAppBar() {
-    return SliverAppBar(
-      expandedHeight: 200,
-      floating: false,
-      pinned: true,
-      backgroundColor: const Color(0xFF1E88E5),
-      flexibleSpace: FlexibleSpaceBar(
-        title: const Text(
-          "Prévision Irrigation",
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [const Color(0xFF1E88E5), const Color(0xFF64B5F6).withOpacity(0.9)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+  Widget _buildAppBar() => SliverAppBar(
+    expandedHeight: 200,
+    floating: false,
+    pinned: true,
+    backgroundColor: const Color(0xFF1E88E5),
+    flexibleSpace: FlexibleSpaceBar(
+      title: Text(
+        TranslationService.tr('irrigation_forecast') ?? 'Prévision Irrigation',
+        style: GoogleFonts.notoSans(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      background: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [const Color(0xFF1E88E5), const Color(0xFF64B5F6).withOpacity(0.9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 20, bottom: 20),
-              child: Lottie.asset('assets/lottie/watering.json', width: 120, height: 120),
-            ),
+        ),
+        child: Align(
+          alignment: Alignment.bottomRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 20, bottom: 20),
+            child: Lottie.asset('assets/lottie/watering.json', width: 120, height: 120),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 
   Widget _buildContent() {
     final avgNeed = _predictions.isNotEmpty
-        ? _predictions.map((e) => e["water_need_mm"]).reduce((a, b) => a + b) / _predictions.length
+        ? _predictions.map((e) => (e["water_need_mm"] as num?)?.toDouble() ?? 0.0).reduce((a, b) => a + b) /
+        _predictions.length
         : 0.0;
 
     return CustomScrollView(
@@ -240,12 +261,16 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
                   children: [
                     Icon(Icons.calendar_today, color: Colors.grey[700], size: 20),
                     const SizedBox(width: 8),
-                    Text("BESOINS EN EAU SUR 3 JOURS",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                    Expanded(
+                      child: Text(
+                      TranslationService.tr('irrigation_next_days') ?? 'BESOINS EN EAU SUR 3 JOURS',
+                      style: GoogleFonts.notoSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+                    ),)
                   ],
                 ),
                 const SizedBox(height: 12),
                 _buildForecastCards(),
+
               ],
             ),
           ),
@@ -278,17 +303,19 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(_getNeedLevel(avgNeed),
-                  style: TextStyle(
+                  style: GoogleFonts.notoSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: _getNeedColor(avgNeed),
                       letterSpacing: 1.2)),
               const SizedBox(height: 4),
               Text(_message,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50))),
+                  style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50))),
               const SizedBox(height: 8),
-              Text("Besoin moyen: ${avgNeed.toStringAsFixed(1)} mm/jour",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+              Text(
+                "${TranslationService.tr('average_need') ?? 'Besoin moyen'}: ${avgNeed.toStringAsFixed(1)} mm/jour",
+                style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+              ),
             ]),
           ),
         ],
@@ -303,27 +330,18 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Center(
           child: Text(
-            "Aucune donnée disponible",
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            TranslationService.tr('irrigation_no_data') ?? 'Aucune prévision disponible',
+            style: GoogleFonts.notoSans(fontSize: 14, color: Colors.grey[500]),
           ),
         ),
       );
     }
 
-    final maxNeed = _predictions.map((e) => e["water_need_mm"]).reduce((a, b) => a > b ? a : b);
+    final maxNeed = _predictions.map((e) => (e["water_need_mm"] as num?)?.toDouble() ?? 0.0).reduce((a, b) => a > b ? a : b);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,13 +351,8 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
             Icon(Icons.show_chart, color: Colors.grey[700], size: 20),
             const SizedBox(width: 8),
             Text(
-              "ÉVOLUTION DES BESOINS EN EAU",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-                letterSpacing: 0.5,
-              ),
+              TranslationService.tr('irrigation_recommendation') ?? 'ÉVOLUTION DES BESOINS EN EAU',
+              style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700], letterSpacing: 0.5),
             ),
           ],
         ),
@@ -350,81 +363,52 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
           ),
           child: LineChart(
             LineChartData(
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (value) => FlLine(
-                  color: Colors.grey[100],
-                  strokeWidth: 1,
-                ),
+                getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey[100], strokeWidth: 1),
               ),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
                   sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    getTitlesWidget: (value, meta) {
-                      return Text(
-                        "${value.toInt()} mm",
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    },
-                  ),
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, _) {
+                        return Text("${value.toInt()} mm", style: GoogleFonts.notoSans(fontSize: 10));
+                      }),
                 ),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 32,
-                    getTitlesWidget: (value, meta) {
+                    getTitlesWidget: (value, _) {
                       final idx = value.toInt();
                       if (idx < _predictions.length) {
-                        final date = _predictions[idx]["date"].toString().substring(8);
+                        final date = _predictions[idx]["date"]?.toString().substring(8) ?? '';
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            date,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          child: Text(date, style: GoogleFonts.notoSans(fontSize: 10)),
                         );
                       }
                       return const SizedBox.shrink();
                     },
                   ),
                 ),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey[100]!),
-              ),
+              borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey[100]!)),
               lineBarsData: [
                 LineChartBarData(
-                  spots: _predictions.asMap().entries.map((e) =>
-                      FlSpot(e.key.toDouble(), e.value["water_need_mm"])
-                  ).toList(),
+                  spots: _predictions
+                      .asMap()
+                      .entries
+                      .map((e) => FlSpot(e.key.toDouble(), (e.value["water_need_mm"] as num?)?.toDouble() ?? 0.0))
+                      .toList(),
                   isCurved: true,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2196F3), Color(0xFF4FC3F7)],
-                  ),
+                  gradient: const LinearGradient(colors: [Color(0xFF2196F3), Color(0xFF4FC3F7)]),
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -438,9 +422,7 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
                   ),
                   belowBarData: BarAreaData(
                     show: true,
-                    gradient: LinearGradient(
-                      colors: [const Color(0xFF4FC3F7).withOpacity(0.1), Colors.transparent],
-                    ),
+                    gradient: LinearGradient(colors: [const Color(0xFF4FC3F7).withOpacity(0.1), Colors.transparent]),
                   ),
                 ),
               ],
@@ -460,21 +442,12 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Center(
           child: Text(
-            "Aucune prévision disponible",
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            TranslationService.tr('irrigation_no_data') ?? 'Aucune prévision disponible',
+            style: GoogleFonts.notoSans(fontSize: 14, color: Colors.grey[500]),
           ),
         ),
       );
@@ -484,8 +457,8 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
       children: _predictions.asMap().entries.map((entry) {
         final index = entry.key;
         final prediction = entry.value;
-        final need = prediction["water_need_mm"];
-        final recommendation = prediction["recommendation"] ?? _getRecommendation(need);
+        final need = (prediction["water_need_mm"] as num?)?.toDouble() ?? 0.0;
+        final recommendation = prediction["recommendation"]?.toString() ?? _getRecommendation(need);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -505,80 +478,41 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
                     Container(
                       width: 4,
                       height: 50,
-                      decoration: BoxDecoration(
-                        color: _getNeedColor(need),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                      decoration: BoxDecoration(color: _getNeedColor(need), borderRadius: BorderRadius.circular(2)),
                     ),
                     const SizedBox(width: 16),
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _getNeedColor(need).withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _getNeedIcon(need),
-                        color: _getNeedColor(need),
-                        size: 20,
-                      ),
+                      decoration: BoxDecoration(color: _getNeedColor(need).withOpacity(0.1), shape: BoxShape.circle),
+                      child: Icon(_getNeedIcon(need), color: _getNeedColor(need), size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatDate(prediction["date"]),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF2C3E50),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Jour ${index + 1} • $recommendation",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          _formatDate(prediction["date"]),
+                          style:  GoogleFonts.notoSans(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "${TranslationService.tr('day') ?? 'Jour'} ${index + 1} • $recommendation",
+                          style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ]),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _getNeedColor(need).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      decoration: BoxDecoration(color: _getNeedColor(need).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                       child: Column(
                         children: [
-                          Text(
-                            "${need.toStringAsFixed(1)}",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: _getNeedColor(need),
-                            ),
-                          ),
-                          Text(
-                            "mm",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: _getNeedColor(need).withOpacity(0.7),
-                            ),
-                          ),
+                          Text("${need.toStringAsFixed(1)}",
+                              style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w700, color: _getNeedColor(need))),
+                          Text(TranslationService.tr('mm') ?? 'mm', style: GoogleFonts.notoSans(fontSize: 10, color: _getNeedColor(need).withOpacity(0.7))),
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.grey[400],
-                      size: 16,
-                    ),
+                    Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
                   ],
                 ),
               ),
@@ -596,95 +530,64 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
         return "${parts[2]}/${parts[1]}";
       }
       return dateStr;
-    } catch (e) {
+    } catch (_) {
       return dateStr;
     }
   }
 
   void _showDayDetails(Map<String, dynamic> prediction, int dayIndex) {
-    final need = prediction["water_need_mm"];
-    final recommendation = prediction["recommendation"] ?? _getRecommendation(need);
+    final need = (prediction["water_need_mm"] as num?)?.toDouble() ?? 0.0;
+    final recommendation = prediction["recommendation"]?.toString() ?? _getRecommendation(need);
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(
+            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+          ),
+          const SizedBox(height: 20),
+          Row(
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: _getNeedColor(need).withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(_getNeedIcon(need), color: _getNeedColor(need), size: 24),
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _getNeedColor(need).withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _getNeedIcon(need),
-                      color: _getNeedColor(need),
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    "Besoins du ${_formatDate(prediction["date"])}",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF2C3E50),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildDetailItem("Besoin en eau", "${need.toStringAsFixed(1)} mm"),
-              _buildDetailItem("Niveau", _getNeedLevel(need)),
-              _buildDetailItem("Recommandation", recommendation),
-              _buildDetailItem("Conseil pratique", _getPracticalAdvice(need)),
-              // Indication cache si applicable
-              if (_message.contains("cache"))
-                _buildDetailItem("Source", "Données en cache"),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _getNeedColor(need),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text(
-                    "Compris",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                "${TranslationService.tr('irrigation_next_days') ?? 'Besoins du'} ${_formatDate(prediction["date"])}",
+                style:  GoogleFonts.notoSans(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF2C3E50)),
+                  softWrap: true,
+              ),)
             ],
           ),
-        );
-      },
+          const SizedBox(height: 16),
+          _buildDetailItem(TranslationService.tr('detail_rain_risk') ?? 'Besoin en eau', "${need.toStringAsFixed(1)} mm"),
+          _buildDetailItem(TranslationService.tr('irrigation_level') ?? 'Niveau', _getNeedLevel(need)),
+          _buildDetailItem(TranslationService.tr('irrigation_recommendation') ?? 'Recommandation', recommendation),
+          _buildDetailItem(TranslationService.tr('practical_advice') ?? 'Conseil pratique', _getPracticalAdvice(need)),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _getNeedColor(need),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: Text(
+                TranslationService.tr('irrigation_understood') ?? TranslationService.tr('detail_understood') ?? 'Compris',
+                style: GoogleFonts.notoSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -692,26 +595,14 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Expanded(flex: 3, child: Text(title, style: GoogleFonts.notoSans(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500))),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2C3E50),
-              ),
-              textAlign: TextAlign.right,
-            ),
+            flex: 5,
+            child: Text(value, textAlign: TextAlign.right, style: GoogleFonts.notoSans(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50))),
           ),
         ],
       ),
@@ -719,8 +610,8 @@ class _IrrigationForecastPageState extends ConsumerState<IrrigationForecastPage>
   }
 
   String _getPracticalAdvice(double need) {
-    if (need > 5) return "Arroser tôt le matin pendant 30-45 minutes";
-    if (need > 2) return "Arrosage léger de 15-20 minutes suffisant";
-    return "Éviter l'arrosage pour préserver l'eau";
+    if (need > 5) return TranslationService.tr('advice_high') ?? 'Arroser tôt le matin pendant 30-45 minutes';
+    if (need > 2) return TranslationService.tr('advice_medium') ?? 'Arrosage léger de 15-20 minutes suffisant';
+    return TranslationService.tr('advice_low') ?? 'Éviter l\'arrosage pour préserver l\'eau';
   }
 }

@@ -6,7 +6,11 @@ import joblib, os, requests
 
 router = APIRouter()
 
-MODEL_PATH = os.path.join("../ml/artifacts", "irrigation_model1.pkl")
+#MODEL_PATH = os.path.join("../ml/artifacts", "irrigation_model1.pkl")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "../models/irrigation_model1.pkl")
+
 model = joblib.load(MODEL_PATH)
 
 

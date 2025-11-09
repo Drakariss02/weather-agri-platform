@@ -37,16 +37,14 @@ class _RegisterStep1State extends State<RegisterStep1> {
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView( // ← SOLUTION
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // En-tête avec indicateur de progression
                 _buildProgressIndicator(),
                 const SizedBox(height: 32),
 
-                // Titre et description
                 const Text(
                   "Informations personnelles",
                   style: TextStyle(
@@ -111,9 +109,7 @@ class _RegisterStep1State extends State<RegisterStep1> {
                   },
                 ),
 
-                const SizedBox(height: 40), // ← Remplace Spacer()
-
-                // Bouton Suivant
+                const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
                   height: 56,

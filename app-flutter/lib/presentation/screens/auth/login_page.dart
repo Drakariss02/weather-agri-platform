@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/api_service.dart';
 import '../../../pages/dashboard_page.dart';
+import '../../../services/translation_service.dart';
 import 'register_step1_screen.dart';
 
 class LoginPage extends StatefulWidget {
@@ -25,7 +26,9 @@ class _LoginPageState extends State<LoginPage> {
       final int idAgriculteur = res['id'];
       await prefs.setInt('id_agriculteur', idAgriculteur);
       await prefs.setString('nom_complet', res['nom_complet']);
+      await prefs.setString('numero', res['telephone']);
       await prefs.setString('langue', res['langue']);
+      TranslationService.setLanguage(res['langue']);
 
       final champ = await ApiService.getChampByAgriculteur(idAgriculteur);
 
