@@ -6,7 +6,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)
 
 > **Weather-Agri** est une application  mobile multi-plate-forme qui aide les agriculteurs à gérer leurs champs, suivre leurs cultures et obtenir des prévisions météorologiques locales basées sur leur position.  
-> Développée dans le cadre da la  **deuxième édition du Hack2Hire de Data-Beez @2025**, elle combine **FastAPI**, **Flutter**, **PostgreSQL**, **Prometheus**, **Grafana**, et **Docker**.
+> Développée dans le cadre da la  **deuxième édition du Hack2Hire de Data-Beez @2025**, elle combine **FastAPI(models de prédictions)**, **Flutter**, **PostgreSQL**, **Prometheus**, **Grafana**, et **Docker**.
 
 ---
 
